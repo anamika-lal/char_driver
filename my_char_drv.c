@@ -45,10 +45,11 @@ int my_init(void)
 {
 	int ret;
 
-	ret = register_chrdev_region(my_dev_maj_min, 2, "mydev");
+	/* ls -l /proc/devices/ */
+	ret = alloc_chrdev_region(&my_dev_maj_min, 0, 1, "mydev");
 	if (ret < 0)
-		pr_info("Unable to register, ret = %d\n", ret);
-	pr_info("%s : major = %d, minor = %d\n", __func__,
+		pr_info("Unable to allocate, ret = %d\n", ret);
+	printk("%s : major = %d, minor = %d\n", __func__,
 		MAJOR(my_dev_maj_min), MINOR(my_dev_maj_min));
 
 	/* char device initialization and addition onto the VFS
