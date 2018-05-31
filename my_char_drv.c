@@ -3,6 +3,7 @@
 #include<linux/fs.h>		// for chrdev register unreg apis
 #include<linux/cdev.h>		// for cdev structure and cdev init add apis
 #include<linux/device.h>	// for class and device create apis
+#include<linux/uaccess.h>	// for copy_to/from_user calls
 
 MODULE_LICENSE("GPL"); 		// avoids kernel taint.
 
@@ -10,6 +11,10 @@ static dev_t my_dev_maj_min; 	// major and minor holder
 static struct cdev my_cdev;	// char device structure.
 static struct class *my_class;	// device class structure
 static struct device *my_device;// device structure
+
+struct my_data_struct {
+	char name[20];
+} data;
 
 static int my_open(struct inode *i, struct file *f)
 {
@@ -27,13 +32,21 @@ static ssize_t my_read(struct file *f, char __user *buf,
 		size_t len, loff_t *off)
 {
 	printk("%s\n",__func__);
-	return 0;
+
+	/* simple_read_from_buffer copies data from kernel buffer
+	 * (here, data.name) to the user buffer (here, buf)
+	 * using copy_to_user more sophestically.
+	 */
+	return simple_read_from_buffer(buf, len,
+		off, data.name, sizeof(data.name));
 }
 
 static ssize_t my_write(struct file *f, const char __user *buf,
 		size_t len, loff_t *off)
 {
 	printk("%s\n",__func__);
+	copy_from_user(data.name, buf, len);
+
 	return len;
 }
 
