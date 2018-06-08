@@ -16,6 +16,9 @@ struct my_data_struct {
 	char name[20];
 } data;
 
+/* Define a global mutex */
+DEFINE_MUTEX(lock);
+
 static int my_open(struct inode *i, struct file *f)
 {
 	printk("%s\n",__func__);
@@ -31,21 +34,38 @@ static int my_close(struct inode *i, struct file *f)
 static ssize_t my_read(struct file *f, char __user *buf,
 		size_t len, loff_t *off)
 {
+	int ret;
 	printk("%s\n",__func__);
+
+	/* Can also use a simple mutex_lock but that returns void.
+	 * Using mutex_try_lock variant allow us to check the
+	 * lock state as it returns 0 if fails to lock
+	 */
+	if (!mutex_trylock(&lock))
+		return -EBUSY;
 
 	/* simple_read_from_buffer copies data from kernel buffer
 	 * (here, data.name) to the user buffer (here, buf)
 	 * using copy_to_user more sophestically.
 	 */
-	return simple_read_from_buffer(buf, len,
+	ret = simple_read_from_buffer(buf, len,
 		off, data.name, sizeof(data.name));
+	if (ret < 0)
+		printk("Unable to read\n");
+
+	mutex_unlock(&lock);
+	return ret;
 }
 
 static ssize_t my_write(struct file *f, const char __user *buf,
 		size_t len, loff_t *off)
 {
 	printk("%s\n",__func__);
+
+	if (!mutex_trylock(&lock))
+		return -EBUSY;
 	copy_from_user(data.name, buf, len);
+	mutex_unlock(&lock);
 
 	return len;
 }
@@ -92,14 +112,21 @@ int my_init(void)
 	 */
 	cdev_init(&my_cdev, &my_fops);
 	ret = cdev_add(&my_cdev, my_dev_maj_min, 1);
-	if (ret < 0)
+	if (ret < 0) {
 		printk("%s: Cannot add char device\n", __func__);
+		goto ret;
+	}
 
-	return 0;	
+	/* mutex initialized */
+	mutex_init(&lock);
+ret:
+	return 0;
+
 }
 
 void my_delete(void)
 {
+	mutex_destroy(&lock);
 	cdev_del(&my_cdev);
 	device_destroy(my_class, my_dev_maj_min);
 	class_destroy(my_class);
