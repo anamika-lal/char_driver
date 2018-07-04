@@ -7,6 +7,18 @@
 
 MODULE_LICENSE("GPL"); 		// avoids kernel taint.
 
+static int num = 10;
+static char *name = "Basic driver module param";
+
+module_param(num, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+MODULE_PARM_DESC(num, "An int module param");
+/* array type of module param :
+ * Use charp for character pointer
+ */
+module_param(name, charp, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+MODULE_PARM_DESC(name, "A char array module param");
+
+
 static dev_t my_dev_maj_min; 	// major and minor holder
 static struct cdev my_cdev;	// char device structure.
 static struct class *my_class;	// device class structure
@@ -117,6 +129,10 @@ int my_init(void)
 
 	/* mutex initialized */
 	mutex_init(&data.lock);
+
+	/* Prints for module params */
+	printk("My module num (int): %d\n", num);
+	printk("My module name (char array): %s\n", name);
 ret:
 	return 0;
 
